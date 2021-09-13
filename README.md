@@ -1,5 +1,7 @@
 # KitPvPEvent
 An Infection + Last Man Standing Event plugin written for OwnagePE
+- This plugin was a speedcode. I kinda woke up really late on the day I was meant to host the event and wrote this plugin in just under 6hrs
+- Therefore the code quality is not as excellent as it could/should have been
 
 ## If you want to run/use this plugin youll need:
 - A minimum of 4 players
