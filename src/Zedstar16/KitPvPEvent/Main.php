@@ -112,9 +112,8 @@ class Main extends PluginBase
                         $level = $this->getServer()->getLevelByName("CaveMap");
                         $players = $this->getServer()->getOnlinePlayers();
                         shuffle($players);
-                        foreach ($players as $key => $p) {
-                            $p->setSpawn(new Position(32.5, 87, -26.5, Main::$instance->getServer()->getLevelByName("CaveMap")));
-                            if (in_array($key, [0, 1]) || $p->getName() === "Lmao 2ezy") {
+                        foreach ($players as $key => $p) {                         
+                            if (in_array($key, [0, 1])) {
                             //if ($p->getName() === "Zedstar16") {
                                 Main::$instance->giveInfectorKit($p);
                                 Main::$instance->infection_event->infected[$p->getName()] = $p->getName();
@@ -137,7 +136,7 @@ class Main extends PluginBase
                                             if (empty($nearest)) {
                                                 $nearest = [$user, $dist];
                                             } else {
-                                                if ($nearest[1] < $dist) {
+                                                if ($nearest[1] > $dist) {
                                                     $nearest = [$user, $dist];
                                                 }
                                             }
