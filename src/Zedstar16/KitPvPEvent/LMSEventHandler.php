@@ -159,17 +159,6 @@ class LMSEventHandler implements Listener
         } else  $this->kills[$name]++;
     }
 
-    public function onLaunch(ProjectileLaunchEvent $event)
-    {
-        $entity = $event->getEntity();
-        $owner = $entity->getOwningEntity();
-        if ($owner instanceof Player) {
-            if($owner->getY() >= 89) {
-                $event->setCancelled(true);
-                $owner->sendMessage("§cYou cannot shoot this up here");
-            }
-        }
-    }
 
     public function onShoot(EntityShootBowEvent $e)
     {
