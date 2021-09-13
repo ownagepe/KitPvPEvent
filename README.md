@@ -2,6 +2,7 @@
 An Infection + Last Man Standing Event plugin written for OwnagePE
 
 ## If you want to run/use this plugin youll need:
+- A minimum of 4 players
 - World named `WaitingZone`, players will spawn in this before event start
 - World named `CaveMap`, this is where the plugin will think the Infection event is hosted
 - World named `FPS`, this is where the plugin will try host the LastManStanding Event.
