@@ -221,6 +221,7 @@ class Main extends PluginBase
     public function giveInfoBook(Player $p)
     {
         //  api eval $i=$this->getServer()->getPlayer('Zedstar16')->getInventory();$item = $i->getItemInHand();$item->setPageText(1, '§4➤§lThis is a test for how many words fit');$i->setItemInHand($item);
+    
         $item = Item::get(Item::WRITTEN_BOOK, 0, 1);
         /** @var WrittenBook $item */
         $item->setTitle(TextFormat::UNDERLINE . "§bEvent Information");
@@ -316,17 +317,19 @@ class Main extends PluginBase
 
     public function sendFireworks(Player $p)
     {
-        for ($i = 0; $i < 10; $i++) {
-            $firework = new Fireworks();
-            $color = [Fireworks::COLOR_RED, Fireworks::COLOR_YELLOW, Fireworks::COLOR_GREEN, Fireworks::COLOR_LIGHT_AQUA, Fireworks::COLOR_BLUE, Fireworks::COLOR_PINK, Fireworks::COLOR_DARK_PINK];
-            $firework->addExplosion(Fireworks::TYPE_HUGE_SPHERE, $color[mt_rand(0, 6)]);
-            $firework->setFlightDuration(1);
-            $pos = new Vector3($p->x + mt_rand(-4, 4), $p->y, $p->z + mt_rand(-4, 4));
-            $level = $p->getLevel();
-            $nbt = Entity::createBaseNBT($pos, new Vector3(0.001, 0.05, 0.001), lcg_value() * 360, 90);
-            $entity = Entity::createEntity("FireworksRocket", $level, $nbt, $firework);
-            $entity->spawnToAll();
-        }
+        try {
+            for ($i = 0; $i < 10; $i++) {
+                $firework = new Fireworks();
+                $color = [Fireworks::COLOR_RED, Fireworks::COLOR_YELLOW, Fireworks::COLOR_GREEN, Fireworks::COLOR_LIGHT_AQUA, Fireworks::COLOR_BLUE, Fireworks::COLOR_PINK, Fireworks::COLOR_DARK_PINK];
+                $firework->addExplosion(Fireworks::TYPE_HUGE_SPHERE, $color[mt_rand(0, 6)]);
+                $firework->setFlightDuration(1);
+                $pos = new Vector3($p->x + mt_rand(-4, 4), $p->y, $p->z + mt_rand(-4, 4));
+                $level = $p->getLevel();
+                $nbt = Entity::createBaseNBT($pos, new Vector3(0.001, 0.05, 0.001), lcg_value() * 360, 90);
+                $entity = Entity::createEntity("FireworksRocket", $level, $nbt, $firework);
+                $entity->spawnToAll();
+            }
+        } catch (\Throwable $th) {}
     }
 
     public function commandEvent(CommandEvent $event)
