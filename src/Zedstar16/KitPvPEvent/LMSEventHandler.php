@@ -200,12 +200,6 @@ class LMSEventHandler implements Listener
         }
     }
 
-    public function onMove(PlayerMoveEvent $event){
-        $p = $event->getPlayer();
-        if(Main::$event_stage === Main::STAGE_RUNNING && $p->getY() > 80 && isset($this->alive[$p->getName()])){
-            $p->teleport($this->level->getSpawnLocation()->subtract(0, 15));
-        }
-    }
 
 
 }
