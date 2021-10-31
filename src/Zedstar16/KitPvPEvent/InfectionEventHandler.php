@@ -7,8 +7,11 @@ namespace Zedstar16\KitPvPEvent;
 use pocketmine\entity\Effect;
 use pocketmine\entity\EffectInstance;
 use pocketmine\event\entity\EntityArmorChangeEvent;
+use pocketmine\event\entity\EntityDamageByChildEntityEvent;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\event\entity\EntityShootBowEvent;
+use pocketmine\event\inventory\InventoryTransactionEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerDeathEvent;
 use pocketmine\event\player\PlayerDropItemEvent;
@@ -19,11 +22,15 @@ use pocketmine\event\player\PlayerMoveEvent;
 use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\event\player\PlayerRespawnEvent;
 use pocketmine\event\server\CommandEvent;
+use pocketmine\inventory\ArmorInventory;
+use pocketmine\item\DiamondBoots;
 use pocketmine\item\Item;
 use pocketmine\level\particle\HappyVillagerParticle;
 use pocketmine\level\Position;
 use pocketmine\Player;
+use pocketmine\scheduler\ClosureTask;
 use pocketmine\Server;
+use Zedstar16\KitPvPEvent\tasks\DisplayBowCooldownTask;
 
 class InfectionEventHandler implements Listener
 {
@@ -68,16 +75,34 @@ class InfectionEventHandler implements Listener
         Main::$instance->giveInfectorKit($p);
     }
 
+
     public function onDamage(EntityDamageEvent $event)
     {
         $cause = $event->getCause();
         $p = $event->getEntity();
         if ($p instanceof Player) {
             if ($this->isInfector($p) && $cause === EntityDamageEvent::CAUSE_MAGIC) {
-                echo "cancelld";
                 $event->setBaseDamage(0);
                 $event->setCancelled();
                 return;
+            }
+        }
+    }
+
+    public function onMove(PlayerMoveEvent $event){
+        if(Main::$sex && Main::$event_stage === Main::STAGE_RUNNING){
+            $p = $event->getPlayer();
+            if(isset($this->infected[$p->getName()])) {
+                $ents = $p->getLevel()->getNearbyEntities($p->getBoundingBox(), $p);
+                foreach ($ents as $entity) {
+                    if($entity instanceof  Player && isset($this->surviving[$entity->getName()])) {
+                        if ($entity->getBoundingBox()->expandedCopy(0.5, 0.5, 0.5)->isVectorInside($event->getTo())) {
+                            $dmg = new EntityDamageByEntityEvent($entity, $p, EntityDamageEvent::CAUSE_ENTITY_ATTACK, 3, [], 0);
+                            $p->attack($dmg);
+                            $p->setMotion($p->getDirectionVector()->multiply(-1));
+                        }
+                    }
+                }
             }
         }
     }
@@ -89,7 +114,7 @@ class InfectionEventHandler implements Listener
         if (!$this->isInfector($p) && $event->getItem()->getId() === Item::NETHER_STAR) {
             if (!isset($this->cooldowns[$name]) || (time() - $this->cooldowns[$name]) >= 20) {
                 $this->cooldowns[$name] = time();
-                $p->addEffect(new EffectInstance(Effect::getEffect(Effect::SPEED), 20 * 12, 1));
+                $p->addEffect(new EffectInstance(Effect::getEffect(Effect::SPEED), 20 * 12, 2));
             } else $p->sendTip("§bYour Speed Boost is on cooldown for: §f" . (20 - (time() - $this->cooldowns[$name])));
         }
     }
@@ -106,15 +131,39 @@ class InfectionEventHandler implements Listener
         }
     }
 
+    public function onInventoryTransaction(InventoryTransactionEvent $event){
+        $t = $event->getTransaction();
+       foreach ($t->getInventories() as $inventory){
+           if($inventory instanceof ArmorInventory){
+               $event->setCancelled(true);
+           }
+       }
+    }
+
     /**
      * @param EntityDamageByEntityEvent $event
      * @ignoreCancelled true
      */
-    public function onEntityDamage(EntityDamageByEntityEvent $event)
+    public function onEntityDamage(EntityDamageEvent $event)
     {
-        echo 1;
-        $damager = $event->getDamager();
-        $target = $event->getEntity();
+        $bool = false;
+        if($event instanceof EntityDamageByEntityEvent) {
+            $damager = $event->getDamager();
+            $target = $event->getEntity();
+            $bool = true;
+            if(Main::$event_stage !== Main::STAGE_RUNNING){
+                $event->setCancelled(true);
+                return;
+            }
+        }
+        if($event instanceof EntityDamageByChildEntityEvent){
+            $damager = $event->getChild()->getOwningEntity();
+            $target = $event->getEntity();
+            $bool = true;
+        }
+        if(!$bool){
+            return;
+        }
         if ($damager instanceof Player && $target instanceof Player) {
             $damager_name = $damager->getName();
             $target_name = $target->getName();
@@ -140,12 +189,12 @@ class InfectionEventHandler implements Listener
                     $target->sendTitle("§a§lYou are Infected");
                     for ($i = 0; $i < 15; $i++) {
                         $target->getLevel()->addParticle(new HappyVillagerParticle($target->asVector3()->add((mt_rand(-10, 10) / 10), (mt_rand(0, 10) / 10), (mt_rand(-10, 10) / 10))));
-                      //  Main::$instance->sendFireworks($damager);
                     }
                     $damager->sendTip("§aYou just Infected §f{$target_name}!");
-                    if (count($this->surviving) === 0) {
+                    if (count($this->surviving) === 1) {
                         foreach ($this->server->getOnlinePlayers() as $player) {
-                            $player->sendTitle("§a{$target_name}", "was the last survivor!", 5, 35, 15);
+                            $survivor = array_keys($this->surviving)[0];
+                            $player->sendTitle("§a$survivor", "was the last survivor!", 5, 35, 15);
                         }
                         Main::$instance->endInfectionEvent();
                     }
@@ -154,10 +203,12 @@ class InfectionEventHandler implements Listener
                     $hits = $this->hits[$damager_name][$target_name];
                     $str = str_repeat("§a█", $hits) . str_repeat("§7█", 8 - $hits);
                     $damager->sendTip("§2Infecting §f{$target_name}\n$str");
+                    $target->sendTip("§c{$damager_name}§2 is Infecting you ".$str);
                 }
             }
         }
     }
+
 
     /**
      * @param PlayerJoinEvent $event
@@ -174,12 +225,13 @@ class InfectionEventHandler implements Listener
             $p->teleport($this->server->getLevelByName("WaitingZone")->getSpawnLocation());
             Main::$instance->giveInfoBook($p);
         } else {
-            $pos = new Position(32.5, 87, -26.5, $this->server->getLevelByName("CaveMap"));
-            $event->getPlayer()->setSpawn($pos);
-            $p->teleport($pos);
+            $event->getPlayer()->setSpawn(Main::$instance->getRandomSpawnPos());
+            $p->teleport(Main::$instance->getRandomSpawnPos());
             $this->setInfected($p);
         }
     }
+
+
 
     public function onRespawn(PlayerRespawnEvent $event){
         $p = $event->getPlayer();
@@ -191,12 +243,29 @@ class InfectionEventHandler implements Listener
             $p->teleport($this->server->getLevelByName("WaitingZone")->getSpawnLocation());
             Main::$instance->giveInfoBook($p);
         } else {
-            $pos = new Position(32.5, 87, -26.5, $this->server->getLevelByName("CaveMap"));
-            $event->getPlayer()->setSpawn($pos);
-            $p->teleport($pos);
+            $event->getPlayer()->setSpawn(Main::$instance->getRandomSpawnPos());
+            $p->teleport(Main::$instance->getRandomSpawnPos());
             $this->setInfected($p);
+            Main::$instance->getScheduler()->scheduleDelayedTask(new ClosureTask(function (Int $currentTick) use($p) : void{
+                $p->addEffect(new EffectInstance(Effect::getEffect(Effect::POISON), 99999, 0, true));
+                $p->addEffect(new EffectInstance(Effect::getEffect(Effect::SPEED), 99999, 0, true));
+            }), 10);
         }
     }
+
+    public function onBowShoot(EntityShootBowEvent $event){
+        $player = $event->getEntity();
+        if($player instanceof  Player){
+            $name = $player->getName();
+            if(isset(Main::$bow_cooldown[$name])){
+                $event->setCancelled();
+            }else{
+                Main::$instance->getScheduler()->scheduleRepeatingTask(new DisplayBowCooldownTask($player), 2);
+                Main::$bow_cooldown[$name] = $name;
+            }
+        }
+    }
+
 
     public function onQuit(PlayerQuitEvent $event){
         $p = $event->getPlayer();
@@ -208,7 +277,8 @@ class InfectionEventHandler implements Listener
 
     public function onDeath(PlayerDeathEvent $event)
     {
-        $event->getPlayer()->setSpawn(new Position(32.5, 87, -26.5, $this->server->getLevelByName("CaveMap")));
+        $event->getPlayer()->setSpawn(Main::$instance->getRandomSpawnPos());
+        $event->setDrops([]);
     }
 
     public function commandEvent(CommandEvent $event)
